@@ -5,9 +5,15 @@ import { ProductsService } from './products.service';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  @Get('categories')
+  listCategories() {
+    return this.productsService.listCategories();
+  }
+
   @Get()
   findAll(
     @Query('category') category?: string,
+    @Query('sellerId') sellerId?: string,
     @Query('brand') brand?: string,
     @Query('q') q?: string,
     @Query('minPrice') minPrice?: string,
@@ -15,6 +21,7 @@ export class ProductsController {
   ) {
     return this.productsService.findAll({
       category,
+      sellerId,
       brand,
       q,
       minPrice: minPrice ? Number(minPrice) : undefined,

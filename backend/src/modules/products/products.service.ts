@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { mockProducts } from '../../common/mock-data';
+import { mockCategories, mockProducts } from '../../common/mock-data';
 
 type ProductQuery = {
   category?: string;
+  sellerId?: string;
   brand?: string;
   q?: string;
   minPrice?: number;
@@ -11,9 +12,14 @@ type ProductQuery = {
 
 @Injectable()
 export class ProductsService {
+  listCategories() {
+    return mockCategories;
+  }
+
   findAll(query: ProductQuery) {
     return mockProducts.filter((item) => {
-      const byCategory = query.category ? item.category === query.category : true;
+      const byCategory = query.category ? item.categoryId === query.category : true;
+      const bySeller = query.sellerId ? item.sellerId === query.sellerId : true;
       const byBrand = query.brand
         ? item.brand.toLowerCase() === query.brand.toLowerCase()
         : true;
@@ -22,7 +28,7 @@ export class ProductsService {
         : true;
       const byMinPrice = query.minPrice ? item.price >= query.minPrice : true;
       const byMaxPrice = query.maxPrice ? item.price <= query.maxPrice : true;
-      return byCategory && byBrand && byKeyword && byMinPrice && byMaxPrice;
+      return byCategory && bySeller && byBrand && byKeyword && byMinPrice && byMaxPrice;
     });
   }
 

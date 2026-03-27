@@ -1,13 +1,18 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -15,6 +20,12 @@ import { ChatbotModule } from './modules/chatbot/chatbot.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 40,
+      },
+    ]),
     ...(process.env.DB_ENABLED === 'true'
       ? [
           TypeOrmModule.forRootAsync({
@@ -37,9 +48,18 @@ import { ChatbotModule } from './modules/chatbot/chatbot.module';
     UsersModule,
     ProductsModule,
     OrdersModule,
+    PaymentsModule,
+    ReviewsModule,
+    NotificationsModule,
     ChatbotModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

@@ -67,3 +67,10 @@ SShopBot hướng tới việc xây dựng nền tảng thương mại điện t
 
 ---
 _Tài liệu đang trong quá trình phát triển và hoàn thiện. Vui lòng đóng góp và chỉnh sửa để hoàn bị các modules tính năng._
+
+## 5. Cập nhật kiến trúc (03/2026)
+- Đã bổ sung `ReviewModule`, `NotificationModule`, `PaymentModule` ở backend để tách nghiệp vụ rõ ràng.
+- Đã tách `PAYMENT` độc lập với `ORDER`; thêm bảng `REVIEW`; `CATEGORY` hỗ trợ `parent_id`; `PRODUCT` có `seller_id`.
+- `ChatbotModule` dùng `ChatSession` + `ChatMessage`, có `context window` và `token limit` theo phiên.
+- Đã thêm `rate limiting` cho endpoint AI để tránh bị lạm dụng và kiểm soát chi phí.
+- Frontend dùng `Zustand` cho cart state, có optimistic checkout, `ErrorBoundary`, và i18n cơ bản `vi/en`.

@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './App.css';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { t } from './i18n';
+import type { Locale } from './i18n';
+import { useCartStore } from './stores/cartStore';
 
 type Product = {
   id: string;
@@ -15,14 +19,20 @@ type Product = {
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api';
 
 function App() {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [messages, setMessages] = useState([
-    { role: 'bot', text: 'Xin chào! Tôi là Trợ lý AI của SShopBot. Bạn đang quan tâm đến sản phẩm nào?' }
+  const [locale, setLocale] = React.useState<Locale>('vi');
+  const [chatOpen, setChatOpen] = React.useState(false);
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = React.useState(true);
+  const [messages, setMessages] = React.useState([
+    { role: 'bot', text: 'Xin chao! Toi la tro ly AI cua ShopBot. Ban quan tam san pham nao?' },
   ]);
-  const [input, setInput] = useState('');
-  const [isSending, setIsSending] = useState(false);
+  const [input, setInput] = React.useState('');
+  const [isSending, setIsSending] = React.useState(false);
+  const [sessionId, setSessionId] = React.useState<string | undefined>(undefined);
+  const [checkoutNote, setCheckoutNote] = React.useState('');
+
+  const { items, addItem, removeItem, checkout, isCheckingOut } = useCartStore();
+  const cartTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   React.useEffect(() => {
     const loadProducts = async () => {
@@ -53,16 +63,32 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: content }),
+        body: JSON.stringify({ message: content, sessionId }),
       });
 
       const data = await response.json();
-      setMessages(prev => [...prev, { role: 'bot', text: data.text ?? 'Bot tam thoi chua phan hoi.' }]);
+      if (data.sessionId) {
+        setSessionId(data.sessionId);
+      }
+      setMessages((prev) => [
+        ...prev,
+        { role: 'bot', text: data.text ?? 'Bot tam thoi chua phan hoi.' },
+      ]);
     } catch {
-      setMessages(prev => [...prev, { role: 'bot', text: 'Khong ket noi duoc API chatbot. Hay kiem tra backend.' }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'bot', text: 'Khong ket noi duoc API chatbot. Hay kiem tra backend.' },
+      ]);
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleCheckout = async () => {
+    setCheckoutNote('Dang xu ly don hang...');
+    await checkout();
+    setCheckoutNote('Dat hang thanh cong (optimistic checkout).');
+    setTimeout(() => setCheckoutNote(''), 1800);
   };
 
   return (
@@ -70,16 +96,25 @@ function App() {
       {/* Navbar */}
       <nav className="fixed w-full z-50 transition-all duration-300 backdrop-blur-md bg-white/70 border-b border-white/20 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">SShopBot</div>
+          <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+            {t(locale, 'brand')}
+          </div>
           <div className="hidden md:flex space-x-8 text-sm font-medium">
             <a href="#" className="hover:text-blue-600 transition-colors">Trang chủ</a>
             <a href="#" className="hover:text-blue-600 transition-colors">Sản phẩm</a>
             <a href="#" className="hover:text-blue-600 transition-colors">Dành cho Nhà bán</a>
             <a href="#" className="hover:text-blue-600 transition-colors">Về chúng tôi</a>
           </div>
-          <div className="flex space-x-4">
-            <button className="text-sm font-medium hover:text-blue-600 transition-colors">Đăng nhập</button>
-            <button className="px-4 py-2 text-sm font-medium text-white bg-black hover:bg-slate-800 rounded-full shadow-md transition-all">Đăng ký</button>
+          <div className="flex space-x-2 items-center">
+            <button
+              onClick={() => setLocale((prev) => (prev === 'vi' ? 'en' : 'vi'))}
+              className="rounded-full border border-slate-300 px-3 py-1 text-sm"
+            >
+              {locale.toUpperCase()}
+            </button>
+            <button className="text-sm font-medium hover:text-blue-600 transition-colors">
+              Gio hang ({items.length})
+            </button>
           </div>
         </div>
       </nav>
@@ -90,11 +125,9 @@ function App() {
         <div className="absolute top-20 right-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
         
         <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 z-10 leading-tight">
-          Nền tảng TMĐT <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Được Trợ Lực Bởi AI</span>
+          {t(locale, 'heroTitle')}
         </h1>
-        <p className="max-w-2xl text-lg md:text-xl text-slate-600 mb-10 z-10">
-          Trải nghiệm mua sắm thông minh với Trợ lý ảo AI tư vấn 24/7, cá nhân hóa đến từng nhu cầu. Dành cho cả người mua và người bán.
-        </p>
+        <p className="max-w-2xl text-lg md:text-xl text-slate-600 mb-10 z-10">{t(locale, 'heroDesc')}</p>
         <div className="flex space-x-4 z-10">
           <button className="px-8 py-4 text-base font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all">Khám phá ngay</button>
           <button className="px-8 py-4 text-base font-semibold text-slate-700 bg-white border border-slate-200 rounded-full shadow-sm hover:bg-slate-50 hover:scale-105 transition-all">Dành cho Vendor</button>
@@ -102,11 +135,12 @@ function App() {
       </section>
 
       {/* Product Highlight Fake Section */}
-      <section className="py-20 bg-white">
+      <ErrorBoundary>
+        <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="text-3xl font-bold mb-10 text-center">Sản phẩm nổi bật</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-            {loadingProducts && <p className="text-slate-500">Dang tai san pham...</p>}
+            {loadingProducts && <p className="text-slate-500">{t(locale, 'loading')}</p>}
             {!loadingProducts && products.slice(0, 4).map((product) => (
               <div key={product.id} className="group flex flex-col bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer">
                 <div className="h-48 bg-slate-200 flex items-center justify-center relative overflow-hidden">
@@ -118,18 +152,56 @@ function App() {
                   <p className="text-sm text-slate-500 mb-4 line-clamp-2">{product.description}</p>
                   <div className="mt-auto flex justify-between items-center">
                     <span className="text-lg font-extrabold text-blue-600">{product.price.toLocaleString('vi-VN')}đ</span>
-                    <button className="text-sm font-semibold bg-white border border-slate-200 px-3 py-1.5 rounded-lg group-hover:bg-slate-900 group-hover:text-white transition-colors">Mua ngay</button>
+                    <button
+                      onClick={() =>
+                        addItem({ productId: product.id, name: product.name, price: product.price })
+                      }
+                      className="text-sm font-semibold bg-white border border-slate-200 px-3 py-1.5 rounded-lg group-hover:bg-slate-900 group-hover:text-white transition-colors"
+                    >
+                      {t(locale, 'addToCart')}
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
+        </section>
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <section className="mx-auto max-w-7xl px-6 pb-8">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h3 className="text-lg font-bold">Cart</h3>
+            <p className="text-sm text-slate-500">Tong: {cartTotal.toLocaleString('vi-VN')}đ</p>
+            <div className="mt-3 space-y-2">
+              {items.map((item) => (
+                <div key={item.productId} className="flex items-center justify-between text-sm">
+                  <span>
+                    {item.name} x{item.quantity}
+                  </span>
+                  <button onClick={() => removeItem(item.productId)} className="text-red-600">
+                    Xoa
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={handleCheckout}
+              disabled={isCheckingOut || items.length === 0}
+              className="mt-4 rounded-full bg-indigo-600 px-4 py-2 text-white disabled:opacity-50"
+            >
+              {isCheckingOut ? '...' : t(locale, 'checkout')}
+            </button>
+            {checkoutNote && <p className="mt-2 text-sm text-emerald-600">{checkoutNote}</p>}
+          </div>
+        </section>
+      </ErrorBoundary>
 
       {/* Floating Chatbot */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
         {chatOpen && (
+          <ErrorBoundary>
           <div className="mb-4 w-80 sm:w-96 bg-white/90 backdrop-blur-xl border border-white/40 shadow-2xl rounded-2xl overflow-hidden flex flex-col transform transition-all duration-300 origin-bottom-right">
             {/* Header */}
             <div className="px-5 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
@@ -165,7 +237,7 @@ function App() {
                   type="text" 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Hỏi AI tư vấn sản phẩm..."
+                  placeholder={t(locale, 'chatbotHint')}
                   className="w-full bg-slate-100 text-sm border-none rounded-full px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 />
                 <button type="submit" disabled={isSending} className="absolute right-2 w-8 h-8 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition-colors disabled:opacity-60">
@@ -174,6 +246,7 @@ function App() {
               </form>
             </div>
           </div>
+          </ErrorBoundary>
         )}
 
         {/* Fab Button */}
@@ -186,7 +259,7 @@ function App() {
       </div>
 
     </div>
-  )
+  );
 }
 
 export default App;
